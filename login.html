@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actos Line Trans - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        teal: '#008E9B',
+                        gold: '#EBA31E',
+                        lightbg: '#F8FAFB',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap');
+        body { font-family: 'Montserrat', sans-serif; }
+    </style>
+</head>
+<body class="bg-lightbg text-slate-800 antialiased h-screen flex items-center justify-center">
+
+    <div class="bg-white p-10 rounded-2xl shadow-sm max-w-md w-full border-t-[6px] border-teal" data-aos="fade-up" data-aos-duration="800">
+        <div class="flex justify-center mb-6">
+            <div class="bg-teal p-4 rounded-xl shadow-sm transform hover:scale-110 hover:rotate-3 transition-all duration-300">
+                <i class="fa-solid fa-truck-fast text-white text-3xl"></i>
+            </div>
+        </div>
+        <h1 class="text-3xl font-black text-center text-teal mb-2 uppercase tracking-tight">Actos Line Trans</h1>
+        <p class="text-center text-slate-500 mb-8 font-medium">Professional Logistics Portal</p>
+
+        <form id="login-form" class="space-y-6">
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gold">
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                    <input type="email" id="email" required class="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-teal bg-lightbg transition-colors font-medium text-slate-800 shadow-sm hover:border-teal">
+                </div>
+            </div>
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-sm font-bold text-slate-700">Password</label>
+                    <a href="forgot-password.html" class="text-xs text-gold font-bold hover:underline">Forgot password?</a>
+                </div>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gold">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <input type="password" id="password" required class="w-full border border-slate-200 rounded-xl pl-10 pr-12 py-3 focus:outline-none focus:ring-1 focus:ring-teal bg-lightbg transition-colors font-medium text-slate-800 shadow-sm hover:border-teal">
+                    <button type="button" id="toggle-pw" class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-teal transition-colors" aria-label="Show password">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="error-msg" class="text-rose-500 text-sm hidden text-center font-semibold bg-rose-50 py-2 rounded-lg border border-rose-200"></div>
+
+            <button type="submit" class="w-full bg-teal hover:bg-teal/90 text-white font-bold py-4 rounded-xl shadow-sm transform hover:scale-105 hover:opacity-90 transition-all duration-300 mt-6 flex justify-center items-center gap-2">
+                Sign In <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            </button>
+        </form>
+
+        <div class="mt-8 text-center text-sm text-slate-500 font-medium">
+            Don't have an account? <a href="signup.html" class="text-gold font-bold hover:underline">Sign up</a>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true });
+
+        // Eye icon: toggle password visibility
+        document.getElementById('toggle-pw').addEventListener('click', () => {
+            const pw = document.getElementById('password');
+            const btn = document.getElementById('toggle-pw');
+            const icon = btn.querySelector('i');
+            if (pw.type === 'password') {
+                pw.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                btn.setAttribute('aria-label', 'Hide password');
+            } else {
+                pw.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                btn.setAttribute('aria-label', 'Show password');
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-msg');
+            errorMsg.classList.add('hidden');
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('username', email);
+                formData.append('password', password);
+
+                const res = await fetch('http://localhost:8000/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: formData.toString()
+                });
+
+                if(!res.ok) {
+                    let errorMessage = "Invalid credentials";
+                    try {
+                        const errData = await res.json();
+                        errorMessage = errData.detail || errorMessage;
+                    } catch(e) {
+                        errorMessage = "Invalid credentials or server error";
+                    }
+                    throw new Error(errorMessage);
+                }
+                const data = await res.json();
+
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('email', email);
+
+                // Ask the backend whether this user is the admin, then redirect.
+                let isAdmin = false;
+                try {
+                    const me = await fetch('http://localhost:8000/api/me', {
+                        headers: { 'Authorization': 'Bearer ' + data.access_token }
+                    }).then(r => r.json());
+                    isAdmin = !!me.is_admin;
+                } catch (_) {}
+                window.location.href = isAdmin ? 'admin.html' : 'chat.html';
+
+            } catch (err) {
+                errorMsg.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1"></i> ${err.message}`;
+                errorMsg.classList.remove('hidden');
+            }
+        });
+    </script>
+<script src="theme.js"></script>
+</body>
+</html>

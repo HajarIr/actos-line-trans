@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actos Line Trans - History</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        teal: '#008E9B',
+                        gold: '#EBA31E',
+                        lightbg: '#F8FAFB',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap');
+        body { font-family: 'Montserrat', sans-serif; }
+    </style>
+</head>
+<body class="bg-lightbg text-slate-800 antialiased h-screen flex flex-col transition-all duration-300">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white shadow-sm z-20 relative" data-aos="fade-down" data-aos-duration="600">
+        <!-- Logo Space -->
+        <div class="px-6 py-4 flex items-center gap-4">
+            <div class="bg-teal p-3 rounded-xl shadow-sm transform hover:scale-110 hover:rotate-3 transition-all duration-300">
+                <i class="fa-solid fa-truck-fast text-white text-2xl"></i>
+            </div>
+            <span class="font-black text-teal text-3xl tracking-tight uppercase">Actos Line Trans</span>
+        </div>
+        <!-- Navigation Bar -->
+        <nav class="bg-teal px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-6 text-sm font-bold">
+                <a href="chat.html" class="text-white/80 hover:text-white transition-colors"><i class="fa-solid fa-calculator mr-2"></i>New Quote</a>
+                <a href="history.html" class="text-white hover:text-gold transition-colors"><i class="fa-solid fa-clock-rotate-left mr-2 text-gold"></i>My History</a>
+            </div>
+            <button onclick="logout()" class="text-white hover:text-rose-200 transition-colors text-sm font-bold"><i class="fa-solid fa-right-from-bracket mr-2"></i>Logout</button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-6 md:p-10" data-aos="fade-up" data-aos-duration="800">
+        <div class="flex items-center gap-3 mb-2">
+            <i class="fa-solid fa-clock-rotate-left text-3xl text-teal"></i>
+            <h1 class="text-4xl font-black text-slate-900 tracking-tight">Quote History</h1>
+        </div>
+        <p class="text-slate-500 mb-8 font-medium">View all your previously generated logistics quotes and records.</p>
+        
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-lightbg border-b border-slate-200 text-slate-700 font-bold uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4">Origin</th>
+                            <th class="px-6 py-4">Destination</th>
+                            <th class="px-6 py-4">Weight</th>
+                            <th class="px-6 py-4">Contact</th>
+                            <th class="px-6 py-4 text-right">Total Price</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                        <!-- Fetched rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="loading" class="p-10 text-center text-slate-500 font-medium">
+                <i class="fa-solid fa-truck-fast animate-pulse text-3xl text-teal mb-3 block"></i>
+                <span class="animate-pulse">Loading history records...</span>
+            </div>
+            <div id="empty-state" class="p-12 text-center text-slate-500 hidden">
+                <div class="bg-lightbg w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-folder-open text-3xl text-slate-400"></i>
+                </div>
+                <p class="font-bold text-lg text-slate-700">No records found</p>
+                <p class="text-sm mt-1">You haven't generated any quotes yet.</p>
+                <a href="chat.html" class="inline-block mt-6 bg-gold text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:bg-[#D99215] transform hover:scale-105 transition-all duration-300">Create First Quote</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true });
+
+        const token = localStorage.getItem('token');
+        if(!token) {
+            window.location.href = '/login.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+
+        async function fetchHistory() {
+            try {
+                const res = await fetch('http://localhost:8000/api/history', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if(res.status === 401) return logout();
+                if(!res.ok) throw new Error("Failed to fetch");
+                
+                const data = await res.json();
+                const tbody = document.getElementById('history-body');
+                document.getElementById('loading').classList.add('hidden');
+                
+                if(data.history.length === 0) {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    return;
+                }
+                
+                data.history.forEach((item, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = `hover:bg-slate-50 transition-colors animate__animated animate__fadeInUp`;
+                    tr.style.animationDelay = `${index * 0.05}s`;
+                    tr.innerHTML = `
+                        <td class="px-6 py-5 text-slate-500"><i class="fa-regular fa-calendar mr-2 text-teal"></i>${item.date}</td>
+                        <td class="px-6 py-5 font-bold text-slate-900">${item.origin}</td>
+                        <td class="px-6 py-5 font-bold text-slate-900">${item.destination}</td>
+                        <td class="px-6 py-5"><span class="bg-lightbg text-slate-700 px-3 py-1 rounded-lg text-xs border border-slate-200"><i class="fa-solid fa-weight-scale mr-1 text-gold"></i>${item.weight} kg</span></td>
+                        <td class="px-6 py-5 text-slate-500"><i class="fa-solid fa-phone text-xs mr-2 text-slate-400"></i>${item.contact_number}</td>
+                        <td class="px-6 py-5 text-right font-black text-teal text-base">$${item.price.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                
+            } catch(e) {
+                document.getElementById('loading').innerHTML = `<i class="fa-solid fa-circle-exclamation text-rose-500 text-2xl block mb-2"></i> Error loading history.`;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', fetchHistory);
+    </script>
+<script src="theme.js"></script>
+</body>
+</html>

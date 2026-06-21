@@ -1,0 +1,43 @@
+# Render.com deployment blueprint for Actos Line Trans.
+# Deploy: push this repo to GitHub, then on render.com choose
+# "New +" -> "Blueprint" and point it at the repo. Render reads this file.
+# Secrets marked `sync: false` must be filled in the Render dashboard
+# (Environment tab) after the first deploy — they are NOT stored in git.
+services:
+  - type: web
+    name: actos-line-trans
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/cities
+    envVars:
+      # Auto-generated strong key — satisfies the fail-fast SECRET_KEY guard.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      # --- Fill these in the Render dashboard (Environment tab) ---
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: TARGET_EMAIL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # --- Non-secret defaults ---
+      - key: SMTP_SERVER
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
+      - key: CODE_TTL_MINUTES
+        value: "10"
+      - key: DEMO_SHOW_CODES
+        value: "false"

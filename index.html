@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>International Logistics Price Estimator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdfa; /* Light cyan-blue background */
+        }
+        .chat-container {
+            height: calc(100vh - 180px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .typing-dot {
+            animation: typing 1.4s infinite ease-in-out;
+            fill: #3b82f6;
+        }
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 100% { opacity: 0.2; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-2px); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-blue-50 text-slate-800 antialiased flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-blue-100 py-4 px-6 flex items-center justify-between z-10 relative">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Actos Line Trans Bot</h1>
+                <p class="text-xs text-blue-600 font-medium flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Online
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <label for="currency-select" class="text-xs text-slate-500 hidden sm:inline">Currency</label>
+            <select id="currency-select" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="MAD">🇲🇦 MAD</option>
+                <option value="EUR">🇪🇺 EUR</option>
+                <option value="USD">🇺🇸 USD</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Main Chat Area -->
+    <main class="flex-1 max-w-3xl w-full mx-auto bg-white shadow-xl flex flex-col relative overflow-hidden">
+        
+        <!-- Chat Messages -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6 chat-container bg-slate-50/50">
+            <!-- Messages will be injected here -->
+        </div>
+
+        <!-- Typing Indicator (Hidden by default) -->
+        <div id="typing-indicator" class="hidden px-6 py-2 bg-slate-50/50 items-center gap-2">
+            <div class="bg-white border border-blue-100 rounded-2xl rounded-tl-none py-3 px-4 shadow-sm inline-flex gap-1">
+                <svg width="24" height="6" viewBox="0 0 24 6">
+                    <circle class="typing-dot" cx="4" cy="3" r="3" />
+                    <circle class="typing-dot" cx="12" cy="3" r="3" />
+                    <circle class="typing-dot" cx="20" cy="3" r="3" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 bg-white border-t border-slate-100">
+            <div id="input-area" class="flex gap-2">
+                <!-- Inputs will dynamically change based on state -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const state = {
+            step: 0,
+            cities: [],
+            products: [],
+            pickupCity: "",
+            destinationCity: "",
+            weight: 0,
+            productType: "Mixed",
+            refrigerated: false,
+            currency: "MAD",
+            customerName: "",
+            contactNumber: ""
+        };
+
+        const chatMessages = document.getElementById('chat-messages');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const inputArea = document.getElementById('input-area');
+        const currencySelect = document.getElementById('currency-select');
+
+        let RATES = { MAD: {rate: 1, symbol: 'MAD'}, EUR: {rate: 0.092, symbol: '€'}, USD: {rate: 0.099, symbol: '$'} };
+
+        currencySelect.addEventListener('change', (e) => {
+            state.currency = e.target.value;
+            // Re-render any live quote already on screen
+            document.querySelectorAll('[data-mad-amount]').forEach(el => {
+                const mad = parseFloat(el.dataset.madAmount);
+                const r = RATES[state.currency] || RATES.MAD;
+                el.textContent = `${r.symbol} ${(mad * r.rate).toFixed(2)}`;
+            });
+        });
+
+        // Initial setup
+        async function init() {
+            try {
+                showTyping();
+                const [cRes, pRes, fxRes] = await Promise.all([
+                    fetch('http://localhost:8000/api/cities'),
+                    fetch('http://localhost:8000/api/products'),
+                    fetch('http://localhost:8000/api/exchange-rates')
+                ]);
+                const cData = await cRes.json();
+                const pData = await pRes.json();
+                const fxData = await fxRes.json();
+                state.cities = cData.cities.sort();
+                state.products = pData.products;
+                if (fxData && fxData.rates) RATES = fxData.rates;
+                hideTyping();
+
+                addBotMessage("👋 Hello! I'm your Actos Line Trans logistics bot.");
+                setTimeout(() => {
+                    addBotMessage("Let's calculate your shipping costs for fruits & vegetables export and notify our commercial team.");
+                    setTimeout(() => askPickupCity(), 800);
+                }, 800);
+            } catch (e) {
+                hideTyping();
+                addBotMessage("Sorry, I'm having trouble connecting to the server. Please refresh.");
+            }
+        }
+
+        // UI Helpers
+        function showTyping() {
+            typingIndicator.classList.remove('hidden');
+            typingIndicator.classList.add('flex');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTyping() {
+            typingIndicator.classList.add('hidden');
+            typingIndicator.classList.remove('flex');
+        }
+
+        function addBotMessage(text) {
+            const div = document.createElement('div');
+            div.className = "flex gap-3 max-w-[85%] fade-in";
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1 border border-blue-200">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+                <div class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none py-3 px-4 shadow-sm text-sm leading-relaxed">
+                    ${text}
+                </div>
+            `;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = "flex justify-end fade-in mb-4";
+            div.innerHTML = `
+                <div class="bg-blue-600 text-white rounded-2xl rounded-tr-none py-3 px-5 shadow-md max-w-[85%] text-sm">
+                    ${text}
+                </div>
+            `;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function setInput(html) {
+            inputArea.innerHTML = html;
+        }
+
+        // Logic Flow
+        function askPickupCity() {
+            showTyping();
+            setTimeout(() => {
+                hideTyping();
+                addBotMessage("First, please select the <b>Pickup City</b>:");
+                
+                let options = `<option value="" disabled selected>Select a city...</option>`;
+                state.cities.forEach(c => {
+                    options += `<option value="${c}">${c}</option>`;
+                });
+                
+                setInput(`
+                    <select id="city-select" class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 shadow-sm appearance-none cursor-pointer">
+                        ${options}
+                    </select>
+                    <button onclick="handlePickup()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium shadow-md transition-colors flex items-center gap-2">
+                        Next
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                `);
+            }, 1000);
+        }
+
+        function handlePickup() {
+            const select = document.getElementById('city-select');
+            if(!select.value) return;
+            state.pickupCity = select.value;
+            addUserMessage(`Pickup: ${state.pickupCity}`);
+            setInput('');
+            askDestinationCity();
+        }
+
+        function askDestinationCity() {
+            showTyping();
+            setTimeout(() => {
+                hideTyping();
+                addBotMessage("Great. Now select the <b>Destination City</b>:");
+                
+                let options = `<option value="" disabled selected>Select destination...</option>`;
+                state.cities.forEach(c => {
+                    if(c !== state.pickupCity) {
+                        options += `<option value="${c}">${c}</option>`;
+                    }
+                });
+                
+                setInput(`
+                    <select id="city-select" class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 shadow-sm appearance-none cursor-pointer">
+                        ${options}
+                    </select>
+                    <button onclick="handleDestination()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium shadow-md transition-colors flex items-center gap-2">
+                        Next
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                `);
+            }, 800);
+        }
+
+        function handleDestination() {
+            const select = document.getElementById('city-select');
+            if(!select.value) return;
+            state.destinationCity = select.value;
+            addUserMessage(`Destination: ${state.destinationCity}`);
+            setInput('');
+            askWeight();
+        }
+
+        function askWeight() {
+            showTyping();
+            setTimeout(() => {
+                hideTyping();
+                addBotMessage("What is the <b>Package Weight (kg)</b>?");
+                
+                setInput(`
+                    <input type="number" id="weight-input" min="0.1" step="0.1" placeholder="e.g. 5000" class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 shadow-sm" onkeypress="if(event.key === 'Enter') handleWeight()">
+                    <button onclick="handleWeight()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium shadow-md transition-colors flex items-center gap-2">
+                        Next
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                `);
+                document.getElementById('weight-input').focus();
+            }, 800);
+        }
+
+        function handleWeight() {
+            const input = document.getElementById('weight-input');
+            const val = parseFloat(input.value);
+            if(isNaN(val) || val <= 0) return alert("Please enter a valid weight");
+            state.weight = val;
+            addUserMessage(`${state.weight} kg`);
+            setInput('');
+            askProduct();
+        }
+
+        function askProduct() {
+            showTyping();
+            setTimeout(() => {
+                hideTyping();
+                addBotMessage("What <b>product</b> are you shipping?");
+                let options = `<option value="" disabled selected>Select product...</option>`;
+                state.products.forEach(p => {
+                    options += `<option value="${p.name}">${p.icon} ${p.name}${p.requires_cold ? '  (needs cold chain)' : ''}</option>`;
+                });
+                setInput(`
+                    <select id="product-select" class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 shadow-sm appearance-none cursor-pointer">
+                        ${options}
+                    </select>
+                    <button onclick="handleProduct()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium shadow-md transition-colors flex items-center gap-2">
+                        Next
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                `);
+            }, 700);
+        }
+
+        function handleProduct() {
+            const sel = document.getElementById('product-select');
+            if(!sel.value) return;
+            state.productType = sel.value;
+            const product = state.products.find(p => p.name === sel.value);
+            addUserMessage(`${product.icon} ${product.name}`);
+            setInput('');
+            // If product mandates cold chain, skip the question and force it
+            if (product.requires_cold) {
+                state.refrigerated = true;
+                setTimeout(() => {
+                    addBotMessage(`❄️ <b>${product.name}</b> requires refrigerated transport (cold chain). I've enabled it for you.`);
+                    setTimeout(() => askName(), 800);
+                }, 500);
+            } else {
+                askRefrigeration();
+            }
+        }
+
+        function askRefrigeration() {
+            showTyping();
+            setTimeout(() => {
+                hideTyping();
+                addBotMessage("Do you want <b>refrigerated transport</b> (cold chain, +30%)?");
+                setInput(`
+                    <button onclick="handleRefrigeration(true)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium shadow-md transition-colors">❄️ Yes, refrigerated</button>
+                    <button onclick="handleRefrigeration(false)" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 px-6 py-3 rounded-xl font-medium transition-colors">🚚 No, standard</button>
+                `);
+            }, 600);
+        }
+
+        function handleRefrigeration(yes) {
+            state.refrigerated = !!yes;
+            addUserMessage(yes ? "Refrigerated transport" : "Standard transport");
+            setInput('');
+            askName();
+        }
+
+        function askName() {
+            showTyping();
+            setTimeout(() => {
+                hideTyping();
+                addBotMessage("Please provide your <b>Full Name</b>:");
+                
+                setInput(`
+                    <input type="text" id="name-input" placeholder="e.g. John Doe" class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 shadow-sm" onkeypress="if(event.key === 'Enter') handleName()">
+                    <button onclick="handleName()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium shadow-md transition-colors flex items-center gap-2">
+                        Next
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                `);
+                document.getElementById('name-input').focus();
+            }, 800);
+        }
+
+        function handleName() {
+            const input = document.getElementById('name-input');
+            const val = input.value.trim();
+            if(!val) return alert("Please enter your name");
+            state.customerName = val;
+            addUserMessage(state.customerName);
+            setInput('');
+            askContact();
+        }
+
+        function askContact() {
+            showTyping();
+            setTimeout(() => {
+                hideTyping();
+                addBotMessage("Finally, provide your <b>Contact Number</b> to generate the quote and notify our team:");
+                
+                setInput(`
+                    <input type="tel" id="contact-input" placeholder="+212 600 000 000" class="flex-1 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 shadow-sm" onkeypress="if(event.key === 'Enter') handleContact()">
+                    <button onclick="handleContact()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium shadow-md transition-colors flex items-center gap-2">
+                        Submit
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    </button>
+                `);
+                document.getElementById('contact-input').focus();
+            }, 800);
+        }
+
+        async function handleContact() {
+            const input = document.getElementById('contact-input');
+            const val = input.value.trim();
+            if(!val) return alert("Please enter a contact number");
+            state.contactNumber = val;
+            addUserMessage(state.contactNumber);
+            setInput('');
+            
+            showTyping();
+            try {
+                const res = await fetch('http://localhost:8000/send-email', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        pickup_city: state.pickupCity,
+                        destination_city: state.destinationCity,
+                        weight: state.weight,
+                        customer_name: state.customerName,
+                        contact_number: state.contactNumber,
+                        product_type: state.productType,
+                        refrigerated: state.refrigerated,
+                        currency: state.currency
+                    })
+                });
+
+                hideTyping();
+                if(!res.ok) throw new Error("Failed to generate quote");
+
+                const data = await res.json();
+                const r = RATES[state.currency] || RATES.MAD;
+                const conv = (mad) => `${r.symbol} ${(mad * r.rate).toFixed(2)}`;
+                const coldRow = data.cold_fee > 0
+                    ? `<li><span class="font-medium">Cold Chain (+30%):</span> <span data-mad-amount="${data.cold_fee}">${conv(data.cold_fee)}</span></li>` : '';
+
+                const quoteHTML = `
+                    <div class="mt-2 mb-2">
+                        <div class="font-bold text-lg text-blue-700 mb-2">Calculated Quote #${data.lead_id}</div>
+                        <ul class="text-sm space-y-1 mb-3 text-slate-600">
+                            <li><span class="font-medium">Route:</span> ${state.pickupCity} ➔ ${state.destinationCity} (${data.distance_km} km)</li>
+                            <li><span class="font-medium">Product:</span> ${data.product_icon} ${data.product_type} (perishability ${data.perishability})</li>
+                            <li><span class="font-medium">Weight:</span> ${state.weight} kg</li>
+                            <li><span class="font-medium">Base Rate:</span> <span data-mad-amount="${data.base_rate}">${conv(data.base_rate)}</span></li>
+                            <li><span class="font-medium">Gasoil:</span> <span data-mad-amount="${data.gasoil_cost}">${conv(data.gasoil_cost)}</span></li>
+                            <li><span class="font-medium">Diwana:</span> <span data-mad-amount="${data.diwana_cost}">${conv(data.diwana_cost)}</span></li>
+                            <li><span class="font-medium">Product Surcharge:</span> <span data-mad-amount="${data.product_fee}">${conv(data.product_fee)}</span></li>
+                            ${coldRow}
+                        </ul>
+                        <div class="text-xl font-bold text-slate-800 border-t pt-2 border-slate-200">
+                            Total: <span class="text-blue-600" data-mad-amount="${data.total_price}">${conv(data.total_price)}</span>
+                            <div class="text-xs text-slate-500 mt-1">Internal MAD: ${data.total_price.toFixed(2)} MAD &mdash; switch the currency in the header to convert</div>
+                        </div>
+                    </div>
+                `;
+
+                addBotMessage(quoteHTML);
+                setTimeout(() => {
+                    addBotMessage("🎉 Thank you! Your quote has been generated and the email has been sent successfully.");
+                }, 1000);
+
+            } catch(e) {
+                hideTyping();
+                addBotMessage("Sorry, there was an error processing your request. Please try again.");
+            }
+        }
+
+        // Start
+        window.addEventListener('DOMContentLoaded', init);
+
+    </script>
+    <script src="theme.js"></script>
+</body>
+</html>

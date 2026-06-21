@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Actos Line Trans</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { theme: { extend: { colors: { teal: '#008E9B', gold: '#EBA31E' } } } };</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap');
+body { font-family: 'Montserrat', sans-serif; background: #F1F5F9; }
+.kpi-card { background: white; border-radius: 16px; padding: 18px; }
+.tag { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.tag-pending  { background: #FEF3C7; color: #92400E; }
+.tag-contacted{ background: #DBEAFE; color: #1E40AF; }
+.tag-won      { background: #D1FAE5; color: #065F46; }
+.tag-lost     { background: #FEE2E2; color: #991B1B; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<!-- Dashboard (gated by JWT — see script bottom) -->
+<div id="dashboard" class="hidden">
+
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="bg-teal p-2 rounded-xl">
+          <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Actos Line Trans</div>
+          <h1 class="text-lg font-bold">Sales &amp; Operations Dashboard</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="seed-btn" class="text-xs bg-gold hover:opacity-90 text-white px-3 py-1.5 rounded-lg font-semibold">🌱 Seed demo data</button>
+        <button id="refresh-btn" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg font-semibold">🔄 Refresh</button>
+        <a href="chat.html" class="text-xs text-slate-500 hover:text-teal underline ml-2">Chatbot</a>
+        <a href="tracking.html" class="text-xs text-slate-500 hover:text-teal underline">Tracking</a>
+        <span id="admin-email" class="text-xs text-slate-400 hidden sm:inline ml-3"></span>
+        <button id="logout-btn" class="text-xs text-slate-500 hover:text-rose-600 underline">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div class="kpi-card">
+        <div class="text-xs uppercase text-slate-400">Total leads</div>
+        <div class="text-2xl font-extrabold mt-1" id="kpi-leads">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="text-xs uppercase text-slate-400">Won revenue (MAD)</div>
+        <div class="text-2xl font-extrabold mt-1 text-emerald-600" id="kpi-revenue">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="text-xs uppercase text-slate-400">Pipeline (MAD)</div>
+        <div class="text-2xl font-extrabold mt-1 text-blue-600" id="kpi-pipeline">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="text-xs uppercase text-slate-400">Win rate</div>
+        <div class="text-2xl font-extrabold mt-1 text-amber-600" id="kpi-winrate">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="text-xs uppercase text-slate-400">Pending</div>
+        <div class="text-2xl font-extrabold mt-1" id="kpi-pending">—</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="kpi-card lg:col-span-2">
+        <div class="text-sm font-semibold mb-3">Monthly revenue (MAD)</div>
+        <canvas id="chart-monthly" height="120"></canvas>
+      </div>
+      <div class="kpi-card">
+        <div class="text-sm font-semibold mb-3">Status breakdown</div>
+        <canvas id="chart-status" height="180"></canvas>
+      </div>
+      <div class="kpi-card">
+        <div class="text-sm font-semibold mb-3">Top routes</div>
+        <canvas id="chart-routes" height="180"></canvas>
+      </div>
+      <div class="kpi-card lg:col-span-2">
+        <div class="text-sm font-semibold mb-3">Top products</div>
+        <canvas id="chart-products" height="120"></canvas>
+      </div>
+    </div>
+
+    <!-- Leads table -->
+    <div class="kpi-card overflow-hidden">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-sm font-semibold">All leads</div>
+        <input id="search" placeholder="Search by customer, city, product..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs w-72 focus:outline-none focus:ring-2 focus:ring-teal">
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+            <tr>
+              <th class="text-left p-2">#</th>
+              <th class="text-left p-2">Customer</th>
+              <th class="text-left p-2">Route</th>
+              <th class="text-left p-2">Product</th>
+              <th class="text-right p-2">Weight</th>
+              <th class="text-right p-2">Price (MAD)</th>
+              <th class="text-left p-2">Sales status</th>
+              <th class="text-left p-2">Shipment</th>
+              <th class="text-left p-2">Date</th>
+              <th class="text-right p-2">PDF</th>
+            </tr>
+          </thead>
+          <tbody id="leads-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let allLeads = [];
+let charts = {};
+
+// All admin API calls go through this helper so the JWT is always sent
+function authHeaders(extra = {}) {
+  const tok = localStorage.getItem('token');
+  return { 'Authorization': 'Bearer ' + tok, ...extra };
+}
+
+async function checkAdminAccess() {
+  const tok = localStorage.getItem('token');
+  if (!tok) { window.location.href = 'login.html'; return false; }
+  try {
+    const me = await fetch(`${API}/api/me`, { headers: authHeaders() }).then(r => r.json());
+    if (!me || !me.is_admin) {
+      // logged in but not admin → bounce back to login
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+      return false;
+    }
+    document.getElementById('admin-email').textContent = me.email;
+    document.getElementById('dashboard').classList.remove('hidden');
+    loadAll();
+    return true;
+  } catch (e) {
+    window.location.href = 'login.html';
+    return false;
+  }
+}
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('email');
+  window.location.href = 'login.html';
+});
+
+document.getElementById('refresh-btn').addEventListener('click', loadAll);
+document.getElementById('seed-btn').addEventListener('click', async () => {
+  await fetch(`${API}/api/admin/seed`, { method: 'POST', headers: authHeaders() });
+  loadAll();
+});
+
+document.getElementById('search').addEventListener('input', renderLeads);
+
+async function loadAll(){
+  const [leadsR, statsR] = await Promise.all([
+    fetch(`${API}/api/admin/leads`, { headers: authHeaders() }).then(r => r.json()),
+    fetch(`${API}/api/admin/stats`, { headers: authHeaders() }).then(r => r.json()),
+  ]);
+  allLeads = leadsR.leads || [];
+  renderLeads();
+  renderKpis(statsR.kpi);
+  renderCharts(statsR);
+}
+
+function renderKpis(k){
+  document.getElementById('kpi-leads').textContent = k.total_leads;
+  document.getElementById('kpi-revenue').textContent = k.total_revenue_mad.toLocaleString();
+  document.getElementById('kpi-pipeline').textContent = k.pipeline_mad.toLocaleString();
+  document.getElementById('kpi-winrate').textContent = k.win_rate + '%';
+  document.getElementById('kpi-pending').textContent = k.pending;
+}
+
+function renderCharts(stats){
+  // Monthly revenue
+  upsertChart('chart-monthly', 'bar', {
+    labels: stats.monthly_revenue.map(d => d.month),
+    datasets: [{
+      label: 'Revenue (MAD)',
+      data: stats.monthly_revenue.map(d => d.value),
+      backgroundColor: '#008E9B',
+      borderRadius: 6,
+    }]
+  });
+
+  // Status doughnut
+  upsertChart('chart-status', 'doughnut', {
+    labels: ['Pending', 'Contacted', 'Won', 'Lost'],
+    datasets: [{
+      data: [stats.kpi.pending, stats.kpi.contacted, stats.kpi.won, stats.kpi.lost],
+      backgroundColor: ['#F59E0B', '#3B82F6', '#10B981', '#EF4444'],
+    }]
+  }, { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } } });
+
+  // Top routes
+  upsertChart('chart-routes', 'bar', {
+    labels: stats.top_routes.map(r => r.route),
+    datasets: [{
+      label: 'Quotes',
+      data: stats.top_routes.map(r => r.count),
+      backgroundColor: '#EBA31E',
+      borderRadius: 6,
+    }]
+  }, { indexAxis: 'y', plugins: { legend: { display: false } } });
+
+  // Products
+  upsertChart('chart-products', 'bar', {
+    labels: stats.top_products.map(p => p.product),
+    datasets: [{
+      label: 'Quotes',
+      data: stats.top_products.map(p => p.count),
+      backgroundColor: '#10B981',
+      borderRadius: 6,
+    }]
+  }, { plugins: { legend: { display: false } } });
+}
+
+function upsertChart(id, type, data, options={}){
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type, data,
+    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: type !== 'bar' } }, ...options }
+  });
+}
+
+function statusTag(s){
+  const cls = ({Pending:'tag-pending', Contacted:'tag-contacted', Won:'tag-won', Lost:'tag-lost'})[s] || 'tag-pending';
+  return `<span class="tag ${cls}">${s}</span>`;
+}
+
+function renderLeads(){
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const tbody = document.getElementById('leads-body');
+  const filtered = allLeads.filter(l => !q || JSON.stringify(l).toLowerCase().includes(q));
+  tbody.innerHTML = filtered.map(l => `
+    <tr class="hover:bg-slate-50">
+      <td class="p-2 font-mono text-xs">#${l.id}</td>
+      <td class="p-2">
+        <div class="font-semibold">${escapeHtml(l.customer_name || '—')}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(l.contact_number || '')}</div>
+      </td>
+      <td class="p-2 text-xs">${escapeHtml(l.origin)} → ${escapeHtml(l.destination)}</td>
+      <td class="p-2 text-xs">${escapeHtml(l.product_type)}${l.refrigerated ? ' ❄️' : ''}</td>
+      <td class="p-2 text-right text-xs">${l.weight} kg</td>
+      <td class="p-2 text-right font-semibold">${(l.price).toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+      <td class="p-2">
+        <select onchange="updateStatus(${l.id}, 'status', this.value)" class="border border-slate-200 rounded px-2 py-1 text-xs">
+          ${['Pending','Contacted','Won','Lost'].map(s => `<option ${s===l.status?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td class="p-2">
+        <select onchange="updateStatus(${l.id}, 'shipment_status', this.value)" class="border border-slate-200 rounded px-2 py-1 text-xs">
+          ${['Pending','Pickup','InTransit','Customs','Delivered'].map(s => `<option ${s===l.shipment_status?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td class="p-2 text-xs text-slate-500">${l.date}</td>
+      <td class="p-2 text-right">
+        <a href="${API}/api/quote-pdf/${l.id}" target="_blank" class="text-teal text-xs hover:underline">📄</a>
+        <a href="tracking.html?id=${l.id}" class="text-teal text-xs hover:underline ml-2">🚚</a>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function updateStatus(id, field, value){
+  await fetch(`${API}/api/admin/leads/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ [field]: value })
+  });
+  loadAll();
+}
+
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+window.updateStatus = updateStatus;
+
+// Run the JWT gate on page load
+checkAdminAccess();
+</script>
+<script src="theme.js"></script>
+</body>
+</html>

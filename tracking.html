@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracking — Actos Line Trans</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { theme: { extend: { colors: { teal: '#008E9B', gold: '#EBA31E' } } } };</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+body { font-family: 'Montserrat', sans-serif; background:#F8FAFB; }
+#map { height: 480px; border-radius: 16px; }
+.timeline-step { position: relative; padding-left: 30px; padding-bottom: 24px; }
+.timeline-step:last-child { padding-bottom: 0; }
+.timeline-step::before {
+  content: ''; position: absolute; left: 8px; top: 18px; bottom: -6px; width: 2px; background: #cbd5e1;
+}
+.timeline-step:last-child::before { display: none; }
+.timeline-step .dot {
+  position: absolute; left: 0; top: 4px; width: 18px; height: 18px; border-radius: 50%;
+  background: white; border: 3px solid #cbd5e1;
+}
+.timeline-step.done .dot { background: #008E9B; border-color: #008E9B; }
+.timeline-step.current .dot { background: #EBA31E; border-color: #EBA31E; box-shadow: 0 0 0 4px rgba(235,163,30,0.25); animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(235,163,30,0.25); } 50% { box-shadow: 0 0 0 8px rgba(235,163,30,0.05); } }
+.truck-icon {
+  background: white; border: 3px solid #EBA31E; border-radius: 50%; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+</style>
+</head>
+<body class="text-slate-800">
+
+<header class="bg-white border-b border-slate-200 shadow-sm">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="bg-teal p-2 rounded-xl">
+        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4l3 3v5a1 1 0 01-1 1h-1m-6 0h6"/></svg>
+      </div>
+      <div>
+        <div class="text-sm text-slate-500">Actos Line Trans</div>
+        <h1 class="text-lg font-bold">Shipment Tracking</h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+      <a href="chat.html" class="text-slate-500 hover:text-teal">← Chatbot</a>
+      <a href="admin.html" class="text-slate-500 hover:text-teal">Admin</a>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+
+  <!-- Lookup -->
+  <div class="bg-white rounded-2xl shadow-sm p-5 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+    <label class="font-semibold text-slate-700 text-sm">Quote / Shipment number:</label>
+    <input id="lead-id" type="number" min="1" placeholder="e.g. 1"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-teal">
+    <button id="track-btn" class="bg-teal hover:opacity-90 text-white px-5 py-2 rounded-lg font-semibold text-sm">Track</button>
+    <span id="status-msg" class="text-xs text-slate-400 ml-auto"></span>
+  </div>
+
+  <!-- Empty state -->
+  <div id="empty" class="bg-white rounded-2xl shadow-sm p-10 text-center text-slate-500">
+    <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+    <p>Enter a shipment number above to see the live route and current truck position.</p>
+  </div>
+
+  <!-- Result panel -->
+  <div id="panel" class="hidden grid lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm p-4">
+      <div id="map"></div>
+      <div class="mt-4 flex items-center justify-between text-sm">
+        <div>
+          <div class="text-slate-500">Progress</div>
+          <div class="font-semibold"><span id="progress-pct">—</span>%</div>
+        </div>
+        <div class="flex-1 mx-6">
+          <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+            <div id="progress-bar" class="bg-gold h-full rounded-full transition-all duration-500" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-slate-500">ETA</div>
+          <div class="font-semibold" id="eta">—</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="space-y-4">
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="text-xs uppercase tracking-wide text-slate-400 mb-2">Status</div>
+        <div id="big-status" class="text-3xl font-extrabold text-teal">—</div>
+        <div id="small-info" class="text-xs text-slate-500 mt-1">—</div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="text-xs uppercase tracking-wide text-slate-400 mb-3">Timeline</div>
+        <div id="timeline"></div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm p-5 text-sm space-y-1">
+        <div class="text-xs uppercase tracking-wide text-slate-400 mb-2">Shipment</div>
+        <div><b>Customer:</b> <span id="info-customer">—</span></div>
+        <div><b>Product:</b> <span id="info-product">—</span></div>
+        <div><b>Weight:</b> <span id="info-weight">—</span> kg</div>
+        <div><b>Distance:</b> <span id="info-distance">—</span> km</div>
+        <div><b>Started:</b> <span id="info-started">—</span></div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+const API = 'http://localhost:8000';
+let map, routeLine, truckMarker, originMarker, destMarker;
+let currentId = null;
+let pollTimer = null;
+
+const STEPS = [
+  { key: 'Pending',    label: 'Pending paperwork',    icon: '📋' },
+  { key: 'Pickup',     label: 'Pickup at origin',     icon: '🏭' },
+  { key: 'InTransit',  label: 'In transit',           icon: '🚚' },
+  { key: 'Customs',    label: 'Customs clearance',    icon: '🛂' },
+  { key: 'Delivered',  label: 'Delivered',            icon: '✅' },
+];
+
+function ensureMap(centerLat, centerLon) {
+  if (!map) {
+    map = L.map('map').setView([centerLat, centerLon], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 18
+    }).addTo(map);
+  }
+}
+
+function clearMap(){
+  [routeLine, truckMarker, originMarker, destMarker].forEach(l => { if (l) map.removeLayer(l); });
+  routeLine = truckMarker = originMarker = destMarker = null;
+}
+
+function buildTimeline(currentStatus, crossBorder) {
+  const tl = document.getElementById('timeline');
+  const order = ['Pending','Pickup','InTransit','Customs','Delivered'];
+  const filtered = STEPS.filter(s => crossBorder || s.key !== 'Customs');
+  const idxCurrent = order.indexOf(currentStatus);
+  tl.innerHTML = filtered.map(step => {
+    const idxStep = order.indexOf(step.key);
+    let cls = '';
+    if (idxStep < idxCurrent) cls = 'done';
+    else if (idxStep === idxCurrent) cls = 'current';
+    return `
+      <div class="timeline-step ${cls}">
+        <div class="dot"></div>
+        <div class="font-semibold text-sm">${step.icon} ${step.label}</div>
+      </div>`;
+  }).join('');
+}
+
+async function fetchTracking(id){
+  const res = await fetch(`${API}/api/tracking/${id}`);
+  if (!res.ok) {
+    document.getElementById('status-msg').textContent = 'Shipment not found';
+    document.getElementById('panel').classList.add('hidden');
+    document.getElementById('empty').classList.remove('hidden');
+    return;
+  }
+  const d = await res.json();
+
+  document.getElementById('empty').classList.add('hidden');
+  document.getElementById('panel').classList.remove('hidden');
+  document.getElementById('status-msg').textContent = `Live update at ${new Date().toLocaleTimeString()}`;
+
+  // Map
+  ensureMap(d.current.lat, d.current.lon);
+  clearMap();
+  routeLine = L.polyline(
+    [[d.origin.lat, d.origin.lon], [d.destination.lat, d.destination.lon]],
+    { color: '#008E9B', weight: 4, dashArray: '8, 8' }
+  ).addTo(map);
+  originMarker = L.marker([d.origin.lat, d.origin.lon])
+    .addTo(map).bindPopup(`<b>Origin:</b> ${d.origin.name}`);
+  destMarker = L.marker([d.destination.lat, d.destination.lon])
+    .addTo(map).bindPopup(`<b>Destination:</b> ${d.destination.name}`);
+  const truckIcon = L.divIcon({ html: `<div class="truck-icon">🚚</div>`, className: '', iconSize: [36, 36], iconAnchor: [18, 18] });
+  truckMarker = L.marker([d.current.lat, d.current.lon], { icon: truckIcon })
+    .addTo(map).bindPopup(`<b>${d.status}</b><br>${d.progress_pct}% completed`).openPopup();
+  map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+  // Status & info
+  document.getElementById('big-status').textContent = d.status;
+  document.getElementById('small-info').textContent = d.cross_border ? `Cross-border • ETA ${d.eta}` : `Domestic • ETA ${d.eta}`;
+  document.getElementById('progress-pct').textContent = d.progress_pct;
+  document.getElementById('progress-bar').style.width = d.progress_pct + '%';
+  document.getElementById('eta').textContent = d.eta;
+  document.getElementById('info-customer').textContent = d.customer || '—';
+  document.getElementById('info-product').textContent = d.product;
+  document.getElementById('info-weight').textContent = d.weight;
+  document.getElementById('info-distance').textContent = d.distance_km;
+  document.getElementById('info-started').textContent = d.started_at;
+  buildTimeline(d.status, d.cross_border);
+}
+
+function startPolling(id){
+  currentId = id;
+  if (pollTimer) clearInterval(pollTimer);
+  fetchTracking(id);
+  pollTimer = setInterval(() => fetchTracking(id), 30000); // refresh every 30s
+}
+
+document.getElementById('track-btn').addEventListener('click', () => {
+  const id = parseInt(document.getElementById('lead-id').value, 10);
+  if (!id) return;
+  startPolling(id);
+});
+document.getElementById('lead-id').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') document.getElementById('track-btn').click();
+});
+
+// Auto-load via ?id=
+const params = new URLSearchParams(location.search);
+if (params.get('id')) {
+  document.getElementById('lead-id').value = params.get('id');
+  startPolling(parseInt(params.get('id'), 10));
+}
+</script>
+<script src="theme.js"></script>
+</body>
+</html>

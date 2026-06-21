@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Actos Line Trans — Smart Chatbot</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: { teal: '#008E9B', gold: '#EBA31E', lightbg: '#F8FAFB' } } } };
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body { font-family: 'Montserrat', sans-serif; }
+body[dir="rtl"] { font-family: 'Cairo', 'Montserrat', sans-serif; }
+.fade-in { animation: fadeIn 0.25s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.typing-dot { animation: typing 1.4s infinite ease-in-out; fill: #008E9B; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing { 0%, 100% { opacity: 0.2; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.lang-btn { transition: all 0.15s; }
+.lang-btn.active { background: #008E9B; color: white; transform: scale(1.05); }
+
+/* Sidebar */
+.sidebar {
+  width: 280px; background: #0F172A; color: #e2e8f0;
+  display: flex; flex-direction: column; flex-shrink: 0;
+  transition: transform 0.25s ease, width 0.25s ease;
+}
+.sidebar-item {
+  border-radius: 10px; padding: 10px 12px; margin: 2px 6px;
+  cursor: pointer; transition: background 0.15s;
+  display: flex; align-items: center; gap: 8px; position: relative;
+}
+.sidebar-item:hover { background: rgba(255,255,255,0.06); }
+.sidebar-item.active { background: rgba(0,142,155,0.20); }
+.sidebar-item .delete-btn { opacity: 0; transition: opacity 0.15s; }
+.sidebar-item:hover .delete-btn { opacity: 1; }
+.btn-new {
+  background: #008E9B; color: white; padding: 10px 14px; border-radius: 10px;
+  font-weight: 600; display: flex; align-items: center; gap: 8px; justify-content: center;
+  margin: 12px; transition: opacity 0.15s, transform 0.15s;
+}
+.btn-new:hover { opacity: 0.9; transform: scale(1.02); }
+.smart-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; color: #EBA31E;
+  background: rgba(235,163,30,0.12); padding: 2px 8px;
+  border-radius: 999px; margin-left: 8px; vertical-align: middle;
+}
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 50; transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; display: none; }
+  .sidebar-overlay.open { display: block; }
+}
+</style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 text-slate-800 h-screen flex">
+
+<!-- ============================================
+     SIDEBAR — saved chats
+     ============================================ -->
+<aside id="sidebar" class="sidebar">
+  <div class="px-4 pt-4 pb-2 border-b border-white/10">
+    <div class="flex items-center gap-2 text-white">
+      <div class="bg-teal p-1.5 rounded-lg">
+        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="font-bold text-sm">Actos Assistant</div>
+        <div class="text-[10px] text-slate-400 uppercase tracking-wider">Conversations</div>
+      </div>
+    </div>
+  </div>
+
+  <button id="new-chat-btn" class="btn-new">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    New chat
+  </button>
+
+  <div id="chat-list" class="flex-1 overflow-y-auto pb-2"></div>
+
+  <div class="px-4 py-3 border-t border-white/10 text-[11px] text-slate-400 flex items-center justify-between">
+    <span id="chat-count">0 chats</span>
+    <button id="clear-all-btn" class="hover:text-rose-400 transition-colors">Clear all</button>
+  </div>
+</aside>
+<div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+<!-- ============================================
+     MAIN
+     ============================================ -->
+<div class="flex-1 flex flex-col min-w-0">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 shadow-sm py-3 px-4 sm:px-6 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2 min-w-0">
+      <button id="sidebar-toggle" class="md:hidden text-slate-500 p-1" aria-label="Open conversations">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="bg-teal p-2 rounded-xl flex-shrink-0">
+        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+      </div>
+      <div class="min-w-0">
+        <h1 id="chat-title" class="text-base font-bold text-slate-800 truncate">Actos Line Trans Assistant</h1>
+        <p class="text-xs text-teal font-medium flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+          <span id="status-label">Online — multilingual NLU bot</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <div class="hidden sm:flex bg-slate-100 rounded-full p-1 text-xs font-semibold">
+        <button data-lang="en" class="lang-btn active px-3 py-1 rounded-full">🇬🇧 EN</button>
+        <button data-lang="fr" class="lang-btn px-3 py-1 rounded-full">🇫🇷 FR</button>
+        <button data-lang="ar" class="lang-btn px-3 py-1 rounded-full">🇲🇦 AR</button>
+        <button data-lang="es" class="lang-btn px-3 py-1 rounded-full">🇪🇸 ES</button>
+      </div>
+      <select id="currency-select" class="border border-slate-300 rounded-lg px-2 py-1 text-xs bg-white">
+        <option value="MAD">MAD</option><option value="EUR">EUR</option><option value="USD">USD</option>
+      </select>
+      <button id="reset-btn" title="Reset conversation" class="text-slate-400 hover:text-rose-600 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      </button>
+      <a href="index.html" class="text-xs text-slate-500 hover:text-teal underline ml-2 hidden lg:inline">Guided mode</a>
+    </div>
+  </header>
+
+  <!-- Suggested chips -->
+  <div id="suggestions" class="bg-white border-b border-slate-100 px-4 sm:px-6 py-2 flex gap-2 flex-wrap text-xs"></div>
+
+  <!-- Chat area -->
+  <main class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 max-w-3xl w-full mx-auto" id="chat-area"></main>
+
+  <!-- Typing -->
+  <div id="typing" class="hidden px-6 max-w-3xl w-full mx-auto">
+    <div class="bg-white border border-slate-200 rounded-2xl rounded-tl-none py-2 px-3 shadow-sm inline-flex items-center gap-1">
+      <svg width="24" height="6" viewBox="0 0 24 6">
+        <circle class="typing-dot" cx="4" cy="3" r="3"/><circle class="typing-dot" cx="12" cy="3" r="3"/><circle class="typing-dot" cx="20" cy="3" r="3"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <footer class="bg-white border-t border-slate-200 px-4 sm:px-6 py-3">
+    <form id="chat-form" class="max-w-3xl w-full mx-auto flex gap-2">
+      <input id="user-input" type="text" autocomplete="off" placeholder="Ask anything... (try: 'quote tomatoes Agadir to Madrid 5000 kg')"
+             class="flex-1 border border-slate-300 rounded-full px-5 py-3 focus:outline-none focus:ring-2 focus:ring-teal focus:border-teal text-sm">
+      <button type="submit" class="bg-teal hover:opacity-90 text-white px-6 rounded-full font-semibold flex items-center gap-2 transition-all">
+        <span id="send-label">Send</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+      </button>
+    </form>
+  </footer>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+const STORAGE_KEY = 'actos_chats_v1';
+const ACTIVE_KEY  = 'actos_active_chat_v1';
+
+let lang = 'en';
+let currency = 'MAD';
+let sessionId = null;
+let RATES = { MAD: {rate: 1, symbol: 'MAD'}, EUR: {rate: 0.092, symbol: '€'}, USD: {rate: 0.099, symbol: '$'} };
+
+// In-memory state
+let chats = [];           // array of {id, title, messages, lang, currency, sessionId, createdAt, updatedAt}
+let activeChatId = null;
+
+// ===== i18n =====
+const PLACEHOLDERS = {
+  en: "Ask anything... (try: 'quote tomatoes Agadir to Madrid 5000 kg')",
+  fr: "Posez votre question... (ex. « devis fraises Agadir vers Paris 3000 kg »)",
+  ar: "اطرح سؤالك... (مثلاً «عرض طماطم من أكادير إلى مدريد 5000 كغ»)",
+  es: "Escribe tu pregunta... (ej. «presupuesto fresas Agadir a Madrid 3000 kg»)",
+};
+const SUGGESTIONS = {
+  en: ["Quote tomatoes Agadir to Madrid 5000 kg", "What is the cold chain?", "How long to Paris?", "Track my order"],
+  fr: ["Devis tomates Agadir vers Madrid 5000 kg", "Qu'est-ce que la chaîne du froid ?", "Quel délai vers Paris ?", "Suivre ma commande"],
+  ar: ["عرض طماطم من أكادير إلى مدريد 5000 كغ", "ما هي سلسلة التبريد؟", "كم تستغرق إلى باريس؟", "تتبع طلبيتي"],
+  es: ["Presupuesto tomates Agadir a Madrid 5000 kg", "¿Qué es la cadena de frío?", "¿Cuánto tarda a París?", "Seguir mi pedido"],
+};
+const SEND_LABEL = { en: "Send", fr: "Envoyer", ar: "إرسال", es: "Enviar" };
+const STATUS_LABEL = { en: "Online — multilingual NLU bot", fr: "En ligne — bot NLU multilingue", ar: "متصل — مساعد ذكي متعدد اللغات", es: "En línea — bot NLU multilingüe" };
+const NEW_CHAT_LABEL = { en: "New chat", fr: "Nouvelle conversation", ar: "محادثة جديدة", es: "Nuevo chat" };
+
+// ===== DOM refs =====
+const chatArea = document.getElementById('chat-area');
+const typing = document.getElementById('typing');
+const form = document.getElementById('chat-form');
+const userInput = document.getElementById('user-input');
+const suggestionsEl = document.getElementById('suggestions');
+const currencySelect = document.getElementById('currency-select');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebar-overlay');
+const chatListEl = document.getElementById('chat-list');
+const chatCountEl = document.getElementById('chat-count');
+const chatTitleEl = document.getElementById('chat-title');
+
+// ===== Helpers =====
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function nl2br(s){ return escapeHtml(s).replace(/\n/g, '<br>'); }
+function uid(){ return 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function timeAgo(ts){
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 7) return d + 'd';
+  return new Date(ts).toLocaleDateString();
+}
+
+// ===== Storage =====
+function loadChats(){
+  try { chats = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch (e) { chats = []; }
+  activeChatId = localStorage.getItem(ACTIVE_KEY);
+}
+function persistChats(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
+  if (activeChatId) localStorage.setItem(ACTIVE_KEY, activeChatId);
+}
+
+function getActiveChat(){ return chats.find(c => c.id === activeChatId); }
+
+function newChat(){
+  // If the current chat is empty (no messages), reuse it instead of stacking blanks
+  const active = getActiveChat();
+  if (active && active.messages.length === 0) return;
+
+  const chat = {
+    id: uid(),
+    title: '',
+    messages: [],
+    lang: lang,
+    currency: currency,
+    sessionId: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  chats.unshift(chat);
+  activeChatId = chat.id;
+  sessionId = null;
+  chatArea.innerHTML = '';
+  persistChats();
+  renderSidebar();
+  updateTitle();
+  greet();
+}
+
+function deleteChat(id){
+  const idx = chats.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  chats.splice(idx, 1);
+  if (activeChatId === id) {
+    activeChatId = chats[0]?.id || null;
+    if (activeChatId) loadChat(activeChatId);
+    else newChat();
+  }
+  persistChats();
+  renderSidebar();
+}
+
+function clearAllChats(){
+  if (!confirm('Delete every saved conversation? This cannot be undone.')) return;
+  chats = [];
+  activeChatId = null;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(ACTIVE_KEY);
+  newChat();
+}
+
+function loadChat(id){
+  const chat = chats.find(c => c.id === id);
+  if (!chat) return;
+  activeChatId = id;
+  sessionId = chat.sessionId;
+  setLang(chat.lang || 'en', /*persist*/false);
+  currency = chat.currency || 'MAD';
+  currencySelect.value = currency;
+  chatArea.innerHTML = '';
+  chat.messages.forEach(renderMessage);
+  persistChats();
+  renderSidebar();
+  updateTitle();
+  closeSidebarOnMobile();
+}
+
+function recordMessage(msg){
+  let chat = getActiveChat();
+  if (!chat) { newChat(); chat = getActiveChat(); }
+  chat.messages.push(msg);
+  chat.updatedAt = Date.now();
+  chat.lang = lang;
+  chat.currency = currency;
+  chat.sessionId = sessionId;
+  if (!chat.title && msg.role === 'user') {
+    chat.title = (msg.content || '').slice(0, 60);
+  }
+  // Re-sort by updatedAt so most recent is on top
+  chats.sort((a, b) => b.updatedAt - a.updatedAt);
+  persistChats();
+  renderSidebar();
+  updateTitle();
+}
+
+function updateTitle(){
+  const chat = getActiveChat();
+  chatTitleEl.textContent = (chat && chat.title) ? chat.title : 'Actos Line Trans Assistant';
+}
+
+// ===== Sidebar rendering =====
+function renderSidebar(){
+  chatCountEl.textContent = chats.length + ' chat' + (chats.length === 1 ? '' : 's');
+  if (chats.length === 0) {
+    chatListEl.innerHTML = `<div class="text-xs text-slate-500 px-6 py-8 text-center">No saved conversations yet.<br>Click <strong>New chat</strong> to begin.</div>`;
+    return;
+  }
+  chatListEl.innerHTML = chats.map(c => {
+    const title = c.title || '(empty chat)';
+    const sub = c.messages.length + ' msg • ' + timeAgo(c.updatedAt);
+    const isActive = c.id === activeChatId;
+    return `
+      <div class="sidebar-item ${isActive ? 'active' : ''}" data-id="${c.id}">
+        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-white truncate">${escapeHtml(title)}</div>
+          <div class="text-[10px] text-slate-400 truncate">${sub}</div>
+        </div>
+        <button class="delete-btn text-slate-400 hover:text-rose-400 p-1" data-delete="${c.id}" title="Delete">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
+        </button>
+      </div>`;
+  }).join('');
+}
+
+chatListEl.addEventListener('click', (e) => {
+  const del = e.target.closest('[data-delete]');
+  if (del) { e.stopPropagation(); deleteChat(del.dataset.delete); return; }
+  const item = e.target.closest('.sidebar-item');
+  if (item) loadChat(item.dataset.id);
+});
+
+document.getElementById('new-chat-btn').addEventListener('click', newChat);
+document.getElementById('clear-all-btn').addEventListener('click', clearAllChats);
+
+// ===== Mobile sidebar =====
+function openSidebar(){ sidebar.classList.add('open'); overlay.classList.add('open'); }
+function closeSidebarOnMobile(){ sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+document.getElementById('sidebar-toggle').addEventListener('click', openSidebar);
+overlay.addEventListener('click', closeSidebarOnMobile);
+
+// ===== Lang / currency =====
+function setLang(l, persist=true){
+  lang = l;
+  document.body.dir = (l === 'ar') ? 'rtl' : 'ltr';
+  document.body.lang = l;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
+  userInput.placeholder = PLACEHOLDERS[l];
+  document.getElementById('send-label').textContent = SEND_LABEL[l];
+  document.getElementById('status-label').textContent = STATUS_LABEL[l];
+  document.querySelector('#new-chat-btn').lastChild.textContent = ' ' + NEW_CHAT_LABEL[l];
+  renderSuggestions();
+  if (persist) {
+    const chat = getActiveChat();
+    if (chat) { chat.lang = l; persistChats(); }
+  }
+}
+
+function renderSuggestions(){
+  suggestionsEl.innerHTML = SUGGESTIONS[lang].map(s =>
+    `<button class="px-3 py-1 bg-teal/10 text-teal hover:bg-teal hover:text-white rounded-full font-medium transition-all" onclick="sendQuick(this.textContent)">${escapeHtml(s)}</button>`
+  ).join('');
+}
+
+// ===== Bubbles =====
+function showTyping(){ typing.classList.remove('hidden'); chatArea.scrollTop = chatArea.scrollHeight; }
+function hideTyping(){ typing.classList.add('hidden'); }
+
+function bubbleBot(html, opts = {}){
+  const div = document.createElement('div');
+  div.className = "fade-in flex gap-3 max-w-[90%] mb-4";
+  const badge = opts.smart ? `<span class="smart-badge">✨ Smart</span>` : '';
+  div.innerHTML = `
+    <div class="w-8 h-8 rounded-full bg-teal/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+      <svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M12 18a6 6 0 100-12 6 6 0 000 12z"/></svg>
+    </div>
+    <div class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none py-3 px-4 shadow-sm text-sm leading-relaxed">${html}${badge}</div>`;
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function bubbleUser(text){
+  const div = document.createElement('div');
+  div.className = "fade-in flex justify-end mb-4";
+  div.innerHTML = `<div class="bg-teal text-white rounded-2xl rounded-tr-none py-3 px-4 shadow-md max-w-[85%] text-sm">${escapeHtml(text)}</div>`;
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function renderQuoteCardHtml(q, leadId){
+  const r = RATES[currency] || RATES.MAD;
+  const conv = (mad) => `${r.symbol} ${((mad || 0) * r.rate).toFixed(2)}`;
+
+  // A cost line: label on the left, converted amount on the right (kept live for currency switch).
+  const row = (label, mad) =>
+    `<li class="flex justify-between gap-3"><span>${label}</span>` +
+    `<span class="tabular-nums" data-mad-amount="${mad}">${conv(mad)}</span></li>`;
+  // Only show an optional line when it actually costs something.
+  const opt = (mad, label) => (mad && mad > 0) ? row(label, mad) : '';
+
+  // Fallback for old quotes saved before the pricing upgrade (no detailed fields).
+  const isDetailed = (q.cost_before_margin !== undefined);
+
+  const buttons = `
+      <div id="weather-${leadId}" class="mt-3 text-xs text-slate-500"></div>
+      <div class="mt-3 flex gap-2 flex-wrap">
+        <a href="${API}/api/quote-pdf/${leadId}" target="_blank" class="text-xs bg-gold/90 hover:bg-gold text-white px-3 py-1.5 rounded-full font-semibold">📄 Download PDF</a>
+        <a href="tracking.html?id=${leadId}" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-full font-semibold">🚚 Track shipment</a>
+      </div>`;
+
+  if (!isDetailed){
+    // ---- legacy compact card ----
+    return `
+      <div>
+        <div class="font-bold text-teal text-base mb-2">📦 Quote #${leadId}</div>
+        <ul class="text-xs space-y-1 mb-3 text-slate-600">
+          <li><b>Route:</b> ${escapeHtml(q.cross_border ? 'Cross-border' : 'Domestic')} — ${q.distance_km} km</li>
+          <li><b>Product:</b> ${q.product_icon} ${escapeHtml(q.product_type)}</li>
+          ${row('Subtotal', q.base_rate + q.gasoil_cost + (q.diwana_cost||0))}
+          ${opt(q.product_fee, 'Product surcharge')}
+          ${opt(q.cold_fee, 'Cold chain')}
+        </ul>
+        <div class="text-lg font-extrabold border-t pt-2 border-slate-200 text-slate-800">
+          Total: <span class="text-teal" data-mad-amount="${q.total_price}">${conv(q.total_price)}</span>
+        </div>
+        ${buttons}
+      </div>`;
+  }
+
+  // ---- new detailed card ----
+  const ship = escapeHtml(q.shipment_type || '');
+  const multi = q.trucks_needed > 1
+    ? `<div class="mt-1 mb-2 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-lg px-2 py-1">
+         ⚠️ Load exceeds one truck — quote covers <b>${q.trucks_needed} trucks</b>.
+       </div>` : '';
+  const ltl = (q.shipment_type && q.shipment_type.indexOf('LTL') === 0)
+    ? `<li class="flex justify-between gap-3 text-slate-400"><span>Groupage share</span><span>× ${q.load_factor}</span></li>` : '';
+
+  return `
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <div class="font-bold text-teal text-base">📦 Quote #${leadId}</div>
+        <span class="text-[10px] font-semibold bg-teal/10 text-teal px-2 py-0.5 rounded-full">${ship}</span>
+      </div>
+      <ul class="text-xs space-y-1 mb-2 text-slate-600">
+        <li><b>Route:</b> ${escapeHtml(q.cross_border ? 'Cross-border' : 'Domestic')} — ${q.distance_km} km · ~${q.trip_days} day(s)</li>
+        <li><b>Product:</b> ${q.product_icon} ${escapeHtml(q.product_type)} — perishability ×${q.perishability}</li>
+      </ul>
+      ${multi}
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mt-2 mb-1">Operating costs</div>
+      <ul class="text-xs space-y-1 mb-2 text-slate-600">
+        ${row('Fixed cost share', q.fixed_per_trip)}
+        ${row('Fuel (gasoil' + (q.cold_fee>0 ? ' + reefer' : '') + ')', q.gasoil_cost)}
+        ${row('Tolls (péage)', q.toll_cost)}
+        ${row('Maintenance & tires', q.maintenance_cost)}
+        ${row('Driver (' + q.trip_days + ' day(s))', q.driver_cost)}
+        ${opt(q.ferry_cost, 'Ferry (Strait crossing)')}
+        ${opt(q.customs_cost, 'Customs & transit')}
+        ${row('Misc (parking, weighing)', q.misc_cost)}
+      </ul>
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mt-2 mb-1">Surcharges</div>
+      <ul class="text-xs space-y-1 mb-2 text-slate-600">
+        ${opt(q.product_fee, 'Perishable handling')}
+        ${opt(q.fragile_fee, 'Fragile (+10%)')}
+        ${opt(q.dangerous_fee, 'Dangerous goods (+20%)')}
+        ${opt(q.urgent_fee, 'Urgent / express (+30%)')}
+        ${ltl}
+      </ul>
+
+      <ul class="text-xs space-y-1 mb-2 text-slate-600 border-t border-slate-100 pt-2">
+        ${row('Cost subtotal', q.cost_before_margin)}
+        <li class="flex justify-between gap-3 text-gold font-semibold"><span>Margin (+${Math.round((q.margin_pct||0)*100)}%)</span><span class="tabular-nums" data-mad-amount="${q.margin_amount}">${conv(q.margin_amount)}</span></li>
+      </ul>
+
+      <div class="text-lg font-extrabold border-t pt-2 border-slate-200 text-slate-800 flex justify-between items-baseline">
+        <span>Total</span>
+        <span class="text-teal tabular-nums" data-mad-amount="${q.total_price}">${conv(q.total_price)}</span>
+      </div>
+      ${buttons}
+    </div>`;
+}
+
+function renderMessage(m){
+  if (m.role === 'user') {
+    bubbleUser(m.content);
+  } else if (m.kind === 'quote') {
+    if (m.reply) bubbleBot(nl2br(m.reply));
+    bubbleBot(renderQuoteCardHtml(m.quote, m.leadId));
+    loadWeatherInto(m.leadId);
+  } else if (m.kind === 'link_tracking') {
+    bubbleBot(`<a href="tracking.html" class="text-teal underline">Open tracking page →</a>`);
+  } else {
+    bubbleBot(nl2br(m.content), { smart: !!m.smart });
+  }
+}
+
+async function loadWeatherInto(leadId){
+  try {
+    const w = await fetch(`${API}/api/route-weather/${leadId}`).then(r => r.json());
+    const el = document.getElementById('weather-' + leadId);
+    if (!el) return;
+    const o = w.origin?.current || {}, d = w.destination?.current || {};
+    const oCity = w.origin?.city, dCity = w.destination?.city;
+    const warns = [...(w.origin?.warnings || []), ...(w.destination?.warnings || [])];
+    const warnHtml = warns.length
+      ? `<div class="mt-2 p-2 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 text-[11px] space-y-0.5">${warns.map(s => `<div>${escapeHtml(s)}</div>`).join('')}</div>`
+      : '';
+    el.innerHTML = `
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">🌤 Weather along the route</div>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="p-2 rounded-lg bg-slate-50 border border-slate-100">
+          <div class="font-semibold">${escapeHtml(oCity)}</div>
+          <div>${o.temperature ?? '—'} °C • 💧 ${o.humidity ?? '—'}% • 💨 ${o.wind ?? '—'} km/h</div>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-50 border border-slate-100">
+          <div class="font-semibold">${escapeHtml(dCity)}</div>
+          <div>${d.temperature ?? '—'} °C • 💧 ${d.humidity ?? '—'}% • 💨 ${d.wind ?? '—'} km/h</div>
+        </div>
+      </div>
+      ${warnHtml}`;
+  } catch (e) {}
+}
+
+// ===== Networking =====
+async function send(message){
+  bubbleUser(message);
+  recordMessage({ role: 'user', content: message });
+  userInput.value = '';
+  showTyping();
+  try {
+    const res = await fetch(`${API}/api/chatbot`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ message, session_id: sessionId, lang })
+    });
+    const data = await res.json();
+    sessionId = data.session_id || sessionId;
+    if (data.lang) setLang(data.lang);
+    hideTyping();
+
+    if (data.quote && data.lead_id) {
+      bubbleBot(nl2br(data.reply));
+      bubbleBot(renderQuoteCardHtml(data.quote, data.lead_id));
+      loadWeatherInto(data.lead_id);
+      recordMessage({ role: 'bot', kind: 'quote', reply: data.reply, quote: data.quote, leadId: data.lead_id });
+    } else {
+      bubbleBot(nl2br(data.reply), { smart: !!data.llm });
+      recordMessage({ role: 'bot', content: data.reply, smart: !!data.llm });
+    }
+    if (data.action === 'open_tracking') {
+      bubbleBot(`<a href="tracking.html" class="text-teal underline">Open tracking page →</a>`);
+      recordMessage({ role: 'bot', kind: 'link_tracking' });
+    }
+  } catch (e) {
+    hideTyping();
+    bubbleBot("⚠️ Connection error. Is the server running?");
+  }
+}
+
+async function sendQuick(text){ userInput.value = text; form.requestSubmit(); }
+
+// ===== Bindings =====
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const msg = userInput.value.trim();
+  if (!msg) return;
+  send(msg);
+});
+
+document.querySelectorAll('.lang-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    setLang(b.dataset.lang);
+    send(`switch to ${b.dataset.lang}`);
+  });
+});
+
+currencySelect.addEventListener('change', (e) => {
+  currency = e.target.value;
+  document.querySelectorAll('[data-mad-amount]').forEach(el => {
+    const mad = parseFloat(el.dataset.madAmount);
+    const r = RATES[currency] || RATES.MAD;
+    el.textContent = `${r.symbol} ${(mad * r.rate).toFixed(2)}`;
+  });
+  const chat = getActiveChat();
+  if (chat) { chat.currency = currency; persistChats(); }
+});
+
+document.getElementById('reset-btn').addEventListener('click', async () => {
+  if (sessionId) {
+    await fetch(`${API}/api/chatbot/reset`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({message:'', session_id: sessionId})});
+  }
+  sessionId = null;
+  const chat = getActiveChat();
+  if (chat) { chat.sessionId = null; chat.messages = []; chat.title = ''; persistChats(); renderSidebar(); }
+  chatArea.innerHTML = '';
+  greet();
+});
+
+// ===== Init =====
+async function greet(){
+  showTyping();
+  try {
+    const res = await fetch(`${API}/api/chatbot`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: 'hello', lang })
+    });
+    const data = await res.json();
+    sessionId = data.session_id;
+    hideTyping();
+    bubbleBot(nl2br(data.reply));
+    recordMessage({ role: 'bot', content: data.reply });
+  } catch (e) {
+    hideTyping();
+    bubbleBot("⚠️ Connection error. Is the server running?");
+  }
+}
+
+async function init(){
+  try {
+    const fx = await fetch(`${API}/api/exchange-rates`).then(r => r.json());
+    if (fx && fx.rates) RATES = fx.rates;
+  } catch(e) {}
+
+  loadChats();
+  setLang('en', /*persist*/false);
+
+  if (chats.length && activeChatId && chats.find(c => c.id === activeChatId)) {
+    loadChat(activeChatId);
+  } else if (chats.length) {
+    loadChat(chats[0].id);
+  } else {
+    newChat();
+  }
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+<script src="theme.js"></script>
+</body>
+</html>

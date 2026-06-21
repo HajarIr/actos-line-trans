@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actos Line Trans - Sign Up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        teal: '#008E9B',
+                        gold: '#EBA31E',
+                        lightbg: '#F8FAFB',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap');
+        body { font-family: 'Montserrat', sans-serif; }
+        .code-input { letter-spacing: 12px; text-align: center; font-size: 24px; font-weight: 700; }
+    </style>
+</head>
+<body class="bg-lightbg text-slate-800 antialiased min-h-screen flex items-center justify-center py-10">
+
+    <div class="bg-white p-10 rounded-2xl shadow-sm max-w-md w-full border-t-[6px] border-teal" data-aos="fade-up" data-aos-duration="800">
+        <div class="flex justify-center mb-6">
+            <div class="bg-teal p-4 rounded-xl shadow-sm transform hover:scale-110 hover:rotate-3 transition-all duration-300">
+                <i class="fa-solid fa-truck-fast text-white text-3xl"></i>
+            </div>
+        </div>
+        <h1 class="text-3xl font-black text-center text-teal mb-2 uppercase tracking-tight">Actos Line Trans</h1>
+        <p id="step-subtitle" class="text-center text-slate-500 mb-8 font-medium">Create your business account</p>
+
+        <!-- ============================================
+             STEP 1 — email + password
+             ============================================ -->
+        <form id="step1-form" class="space-y-6">
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gold">
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                    <input type="email" id="email" required class="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-teal bg-lightbg transition-colors font-medium text-slate-800 shadow-sm hover:border-teal">
+                </div>
+                <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-circle-info mr-1"></i>We'll send a 6-digit code to this email to verify it's really yours.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Password</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gold">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <input type="password" id="password" required minlength="6" class="w-full border border-slate-200 rounded-xl pl-10 pr-12 py-3 focus:outline-none focus:ring-1 focus:ring-teal bg-lightbg transition-colors font-medium text-slate-800 shadow-sm hover:border-teal">
+                    <button type="button" data-toggle="password" class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-teal transition-colors" aria-label="Show password">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">At least 6 characters.</p>
+            </div>
+
+            <div id="step1-error" class="text-rose-500 text-sm hidden text-center font-semibold bg-rose-50 py-2 rounded-lg border border-rose-200"></div>
+
+            <button type="submit" id="step1-submit" class="w-full bg-teal hover:bg-teal/90 text-white font-bold py-4 rounded-xl shadow-sm transform hover:scale-105 hover:opacity-90 transition-all duration-300 mt-6 flex justify-center items-center gap-2">
+                Send verification code <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </form>
+
+        <!-- ============================================
+             STEP 2 — enter code
+             ============================================ -->
+        <form id="step2-form" class="space-y-6 hidden">
+            <div class="bg-teal/5 border border-teal/30 text-teal rounded-xl px-4 py-3 text-sm text-center">
+                <i class="fa-solid fa-envelope-circle-check mr-1"></i>
+                Code sent to <strong id="email-display"></strong>.
+                <div class="text-xs mt-1 text-slate-500">If you don't see it within a minute, check your <strong>Spam</strong> folder.</div>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2 text-center">6-digit verification code</label>
+                <input type="text" id="code" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" class="code-input w-full border border-slate-200 rounded-xl py-3 focus:outline-none focus:ring-1 focus:ring-teal bg-lightbg text-slate-800 shadow-sm hover:border-teal" placeholder="------">
+                <p class="text-xs text-slate-500 mt-2 text-center">Code expires in 10 minutes. Check your spam folder if you don't see it.</p>
+            </div>
+
+            <div id="step2-error" class="text-rose-500 text-sm hidden text-center font-semibold bg-rose-50 py-2 rounded-lg border border-rose-200"></div>
+            <div id="step2-info"  class="text-teal text-sm hidden text-center font-semibold bg-teal/10 py-2 rounded-lg border border-teal/30"></div>
+
+            <button type="submit" id="step2-submit" class="w-full bg-teal hover:bg-teal/90 text-white font-bold py-4 rounded-xl shadow-sm transform hover:scale-105 hover:opacity-90 transition-all duration-300 mt-6 flex justify-center items-center gap-2">
+                Verify &amp; Create Account <i class="fa-solid fa-circle-check"></i>
+            </button>
+
+            <div class="flex justify-between text-sm text-slate-500 font-medium">
+                <button type="button" id="back-link" class="text-slate-500 hover:text-teal hover:underline">
+                    <i class="fa-solid fa-arrow-left"></i> Use a different email
+                </button>
+                <button type="button" id="resend-link" class="text-gold hover:underline font-bold">
+                    <i class="fa-solid fa-rotate"></i> Resend code
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-8 text-center text-sm text-slate-500 font-medium">
+            Already have an account? <a href="login.html" class="text-gold font-bold hover:underline">Sign in</a>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true });
+
+        const API = 'http://localhost:8000';
+        const step1 = document.getElementById('step1-form');
+        const step2 = document.getElementById('step2-form');
+        const subtitle = document.getElementById('step-subtitle');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const codeInput = document.getElementById('code');
+        const emailDisplay = document.getElementById('email-display');
+        const step1Err = document.getElementById('step1-error');
+        const step2Err = document.getElementById('step2-error');
+        const step2Info = document.getElementById('step2-info');
+        const step1Btn = document.getElementById('step1-submit');
+        const step2Btn = document.getElementById('step2-submit');
+
+        // --- Eye icon toggle (works for any password input on the page) ---
+        document.querySelectorAll('[data-toggle="password"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const input = btn.parentElement.querySelector('input');
+                const icon = btn.querySelector('i');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    btn.setAttribute('aria-label', 'Hide password');
+                } else {
+                    input.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    btn.setAttribute('aria-label', 'Show password');
+                }
+            });
+        });
+
+        function showStep1() {
+            step2.classList.add('hidden');
+            step1.classList.remove('hidden');
+            subtitle.textContent = 'Create your business account';
+            step1Err.classList.add('hidden');
+        }
+        function showStep2(email) {
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            subtitle.textContent = 'Confirm your email';
+            emailDisplay.textContent = email;
+            step2Err.classList.add('hidden');
+            step2Info.classList.add('hidden');
+            setTimeout(() => codeInput.focus(), 100);
+        }
+        function showError(box, msg) {
+            box.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1"></i> ${msg}`;
+            box.classList.remove('hidden');
+        }
+        function showInfo(box, msg) {
+            box.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> ${msg}`;
+            box.classList.remove('hidden');
+        }
+        async function parseError(res, fallback) {
+            try { const d = await res.json(); return d.detail || fallback; }
+            catch (e) { return fallback; }
+        }
+
+        // --- Step 1: send code ---
+        step1.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            step1Err.classList.add('hidden');
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            step1Btn.disabled = true;
+            step1Btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+            try {
+                const res = await fetch(`${API}/api/signup/start`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, password })
+                });
+                if (!res.ok) throw new Error(await parseError(res, 'Could not send code'));
+                showStep2(email);
+            } catch (err) {
+                showError(step1Err, err.message);
+            } finally {
+                step1Btn.disabled = false;
+                step1Btn.innerHTML = 'Send verification code <i class="fa-solid fa-paper-plane"></i>';
+            }
+        });
+
+        // --- Step 2: verify code ---
+        step2.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            step2Err.classList.add('hidden');
+            step2Info.classList.add('hidden');
+            const email = emailInput.value.trim();
+            const code = codeInput.value.trim();
+
+            step2Btn.disabled = true;
+            step2Btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
+            try {
+                const res = await fetch(`${API}/api/signup/verify`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, code })
+                });
+                if (!res.ok) throw new Error(await parseError(res, 'Verification failed'));
+                alert('Account created successfully! Please log in.');
+                window.location.href = 'login.html';
+            } catch (err) {
+                showError(step2Err, err.message);
+            } finally {
+                step2Btn.disabled = false;
+                step2Btn.innerHTML = 'Verify &amp; Create Account <i class="fa-solid fa-circle-check"></i>';
+            }
+        });
+
+        // --- Resend the code ---
+        document.getElementById('resend-link').addEventListener('click', async () => {
+            step2Err.classList.add('hidden');
+            step2Info.classList.add('hidden');
+            const email = emailInput.value.trim();
+            try {
+                const res = await fetch(`${API}/api/signup/resend`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email })
+                });
+                if (!res.ok) throw new Error(await parseError(res, 'Could not resend code'));
+                showInfo(step2Info, 'A new code was sent to your email.');
+            } catch (err) {
+                showError(step2Err, err.message);
+            }
+        });
+
+        // --- Back to step 1 (different email) ---
+        document.getElementById('back-link').addEventListener('click', () => {
+            codeInput.value = '';
+            showStep1();
+        });
+    </script>
+<script src="theme.js"></script>
+</body>
+</html>

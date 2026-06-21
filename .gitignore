@@ -1,0 +1,45 @@
+# Secrets — never commit
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Local database & generated files
+logistics.db
+*.sqlite3
+
+# Temp / build artifacts
+_*.txt
+_*.pdf
+_diagrams_tmp/
+_review_pages/
+zzz_*
+rapport_dump.txt
+
+# Customer PII / runtime data — never commit
+leads.json
+*.log
+chatbot_guardrail.log
+
+# ── Files NOT needed to run the app (academic report, report tooling, assets,
+#    design docs). Kept locally; excluded from the deployment repo. ──
+*.docx
+*.pdf
+big-picture.html
+build_final_pdf.py
+fill_page_de_garde.py
+generate_cover.py
+generate_rapport.py
+generate_rapport_template.py
+_screenshots/
+_template_assets/
+instructure of the app/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
