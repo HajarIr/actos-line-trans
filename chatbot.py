@@ -694,12 +694,24 @@ def handle_message(
         return {"reply": kb.OUT_OF_NETWORK.get(L, kb.OUT_OF_NETWORK["en"]),
                 "intent": "refused_out_of_network", "session_id": session_id, "lang": L}
 
+    # Pre-extract shipment entities so a greeting that ALSO carries details
+    # ("Bonjour, je veux un devis 6000 kg d'Agadir vers Paris") starts the quote
+    # instead of only saying hello. Same idea protects thanks/help.
+    pickup, dest = extract_cities(text, available_cities)
+    weight = extract_weight(text)
+    product = extract_product(text, available_products)
+    _qpat = INTENT_PATTERNS["quote"][0]
+    quote_signal = bool(
+        re.search(_qpat, normalize(text)) or re.search(_qpat, text.lower())
+        or pickup or dest or weight is not None or product
+    )
+
     # -------- 3) Greeting / thanks / help / track / product without slot-filling
-    if intent == "greet" and not sess.get("awaiting"):
+    if intent == "greet" and not sess.get("awaiting") and not quote_signal:
         return {"reply": S["greet"], "intent": "greet", "session_id": session_id, "lang": L}
-    if intent == "thanks":
+    if intent == "thanks" and not quote_signal:
         return {"reply": S["thanks"], "intent": "thanks", "session_id": session_id, "lang": L}
-    if intent == "help":
+    if intent == "help" and not quote_signal:
         return {"reply": S["help"], "intent": "help", "session_id": session_id, "lang": L}
     if intent == "track":
         return {"reply": S["track_intro"], "intent": "track", "session_id": session_id, "lang": L,
@@ -711,11 +723,6 @@ def handle_message(
 
     # -------- 4) Quote slot-filling (the heart of the bot)
     slots = sess["slots"]
-
-    # Try to extract entities from this message
-    pickup, dest = extract_cities(text, available_cities)
-    weight = extract_weight(text)
-    product = extract_product(text, available_products)
 
     # If we were waiting for a specific slot, route the value there first.
     awaiting = sess.get("awaiting")
